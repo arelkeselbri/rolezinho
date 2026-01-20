@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Treino de Notas – Escala de Ré (Violino)</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; padding: 20px; background: #0b0f14; color: #e8eef6; }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card {
+      background: #121a24; border: 1px solid #223044; border-radius: 14px;
+      padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .bigNote { font-size: 44px; font-weight: 800; letter-spacing: .5px; margin: 6px 0 2px; }
+    .sub { color: #a9b8cc; font-size: 13px; line-height: 1.35; }
+    button {
+      background: #2b77ff; color: white; border: 0; border-radius: 10px;
+      padding: 10px 12px; font-weight: 650; cursor: pointer;
+    }
+    button.secondary { background: #1f2c3d; border: 1px solid #2b3c52; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+    .kpi { background:#0f1620; border: 1px solid #223044; border-radius: 12px; padding: 10px; }
+    .kpi .label { color:#a9b8cc; font-size:12px; }
+    .kpi .val { font-size:20px; font-weight:800; margin-top:4px; }
+    .meter { height: 10px; background: #0f1620; border: 1px solid #223044; border-radius: 999px; overflow: hidden; }
+    .meter > div { height: 100%; width: 0%; background: #35d07f; transition: width 120ms linear; }
+    .statusLine { display:flex; justify-content:space-between; gap:10px; margin-top:10px; font-size: 13px; color:#a9b8cc; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #223044; font-size: 13px; }
+    th { color: #a9b8cc; font-weight: 700; }
+    .tag { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .ok { background: rgba(53,208,127,.18); color: #7ff0b6; border: 1px solid rgba(53,208,127,.35); }
+    .bad { background: rgba(255,94,94,.15); color: #ff8c8c; border: 1px solid rgba(255,94,94,.35); }
+    .hint { color:#a9b8cc; font-size: 12px; margin-top: 10px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .pillRow { display:flex; flex-wrap:wrap; gap:8px; margin-top: 10px; }
+    .pill {
+      background:#0f1620; border:1px solid #223044; color:#a9b8cc;
+      border-radius:999px; padding:6px 10px; font-size:12px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>Jogo de afinação – Escala de <b>Ré (D maior)</b> no violino</h1>
+
+  <div class="row">
+    <div class="card">
+      <div class="sub">Toque a nota exibida. Conta como acerto se você ficar dentro de <b>±1%</b> da frequência-alvo por <b>0,5s</b>.</div>
+
+      <div class="bigNote" id="targetNote">—</div>
+      <div class="sub">
+        Alvo: <span class="mono" id="targetHz">—</span> Hz
+        &nbsp;•&nbsp; Detectado: <span class="mono" id="detHz">—</span> Hz
+        &nbsp;•&nbsp; Erro: <span class="mono" id="detErr">—</span>
+      </div>
+
+      <div class="statusLine">
+        <div>Progresso de sustentação (0,5s):</div>
+        <div class="mono" id="holdMs">0 ms</div>
+      </div>
+      <div class="meter" title="tempo sustentado dentro da tolerância">
+        <div id="holdBar"></div>
+      </div>
+
+      <div class="controls">
+        <button id="btnMic">Ativar microfone</button>
+        <button id="btnStart" disabled>Iniciar jogo</button>
+        <button id="btnStop" class="secondary" disabled>Parar</button>
+
+        <label class="pill">
+          Timeout por tentativa:
+          <select id="timeoutSel">
+            <option value="6">6s</option>
+            <option value="8" selected>8s</option>
+            <option value="10">10s</option>
+            <option value="12">12s</option>
+          </select>
+        </label>
+
+        <label class="pill">
+          Fonte (D maior):
+          <select id="scaleSel" title="O padrão usa Ré maior começando no Ré (corda D aberta).">
+            <option value="D4">D4 → D5 (violino, comum)</option>
+            <option value="D3">D3 → D4 (mais grave)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="pillRow" id="scalePills"></div>
+
+      <div class="hint">
+        Dica: use um ambiente silencioso e toque uma nota estável (sem vibrato) para passar mais fácil.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">Acertos</div>
+          <div class="val" id="hits">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Erros</div>
+          <div class="val" id="misses">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Duração total</div>
+          <div class="val" id="totalTime">0.0s</div>
+        </div>
+      </div>
+
+      <div class="sub" style="margin-top:12px;">
+        Últimas <b>10</b> tentativas:
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Alvo</th>
+            <th>Resultado</th>
+            <th>Tempo</th>
+            <th>Hz (média)</th>
+          </tr>
+        </thead>
+        <tbody id="last10"></tbody>
+      </table>
+
+      <div class="hint">
+        “Hz (média)” é uma média simples das leituras válidas durante a tentativa.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // =========================
+  // 1) Notas da escala de Ré (D maior)
+  // =========================
+  // D4 293.66, E4 329.63, F#4 369.99, G4 392.00, A4 440.00, B4 493.88, C#5 554.37, D5 587.33
+  // Também oferecemos D3→D4 (uma oitava abaixo) como opção.
+  const BASE_SCALES = {
+    D4: [
+      { name: "D4",  hz: 293.66 },
+      { name: "E4",  hz: 329.63 },
+      { name: "F#4", hz: 369.99 },
+      { name: "G4",  hz: 392.00 },
+      { name: "A4",  hz: 440.00 },
+      { name: "B4",  hz: 493.88 },
+      { name: "C#5", hz: 554.37 },
+      { name: "D5",  hz: 587.33 },
+    ],
+    D3: [
+      { name: "D3",  hz: 146.83 },
+      { name: "E3",  hz: 164.81 },
+      { name: "F#3", hz: 185.00 },
+      { name: "G3",  hz: 196.00 },
+      { name: "A3",  hz: 220.00 },
+      { name: "B3",  hz: 246.94 },
+      { name: "C#4", hz: 277.18 },
+      { name: "D4",  hz: 293.66 },
+    ]
+  };
+
+  // =========================
+  // 2) Parâmetros do jogo
+  // =========================
+  const TOLERANCE_RATIO = 0.01;   // 1%
+  const HOLD_SECONDS = 0.5;       // 0.5s dentro da tolerância
+
+  // =========================
+  // 3) Estado
+  // =========================
+  let audioCtx = null;
+  let analyser = null;
+  let mediaStream = null;
+  let data = null;
+  let rafId = null;
+
+  let running = false;
+  let attemptActive = false;
+
+  let scaleKey = "D4";
+  let SCALE = BASE_SCALES[scaleKey];
+
+  let target = null;
+  let attemptStart = 0;
+  let attemptTimeoutMs = 8000;
+
+  let inTuneHold = 0;           // segundos acumulados dentro do range
+  let lastTs = 0;
+
+  let hits = 0, misses = 0;
+  let totalAttemptMs = 0;
+
+  // para “Hz (média)” por tentativa:
+  let sumHz = 0;
+  let nHz = 0;
+
+  const last10 = []; // {idx, targetName, ok, ms, avgHz}
+
+  // =========================
+  // 4) UI helpers
+  // =========================
+  const $ = (id) => document.getElementById(id);
+
+  function setText(id, txt) { $(id).textContent = txt; }
+
+  function fmtHz(x) {
+    if (!Number.isFinite(x)) return "—";
+    return x.toFixed(2);
+  }
+
+  function fmtPct(errRatio) {
+    if (!Number.isFinite(errRatio)) return "—";
+    return (errRatio * 100).toFixed(2) + "%";
+  }
+
+  function renderScalePills() {
+    const host = $("scalePills");
+    host.innerHTML = "";
+    SCALE.forEach(n => {
+      const div = document.createElement("div");
+      div.className = "pill mono";
+      div.textContent = `${n.name} ${n.hz.toFixed(2)}Hz`;
+      host.appendChild(div);
+    });
+  }
+
+  function renderKpis() {
+    setText("hits", String(hits));
+    setText("misses", String(misses));
+    setText("totalTime", (totalAttemptMs / 1000).toFixed(1) + "s");
+  }
+
+  function renderLast10() {
+    const body = $("last10");
+    body.innerHTML = "";
+    last10.slice(-10).forEach((r) => {
+      const tr = document.createElement("tr");
+      const tag = r.ok
+        ? `<span class="tag ok">ACERTO</span>`
+        : `<span class="tag bad">ERRO</span>`;
+      tr.innerHTML = `
+        <td class="mono">${r.idx}</td>
+        <td class="mono">${r.targetName}</td>
+        <td>${tag}</td>
+        <td class="mono">${(r.ms/1000).toFixed(2)}s</td>
+        <td class="mono">${Number.isFinite(r.avgHz) ? r.avgHz.toFixed(2) : "—"}</td>
+      `;
+      body.appendChild(tr);
+    });
+  }
+
+  function setTargetNote(noteObj) {
+    target = noteObj;
+    setText("targetNote", target.name);
+    setText("targetHz", fmtHz(target.hz));
+    setText("detHz", "—");
+    setText("detErr", "—");
+    inTuneHold = 0;
+    lastTs = 0;
+    setText("holdMs", "0 ms");
+    $("holdBar").style.width = "0%";
+  }
+
+  function pickRandomTarget() {
+    const i = Math.floor(Math.random() * SCALE.length);
+    return SCALE[i];
+  }
+
+  // =========================
+  // 5) Pitch detection (Autocorrelation)
+  // =========================
+  // Baseado em autocorrelação simples (suficiente para treino).
+  // Retorna frequência em Hz, ou null se não detectável.
+  function autoCorrelate(buf, sampleRate) {
+    // Remove DC
+    let mean = 0;
+    for (let i = 0; i < buf.length; i++) mean += buf[i];
+    mean /= buf.length;
+    for (let i = 0; i < buf.length; i++) buf[i] -= mean;
+
+    // Energia / RMS para checar silêncio
+    let rms = 0;
+    for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / buf.length);
+    if (rms < 0.012) return null; // limiar de volume (ajuste se necessário)
+
+    // Autocorrelação
+    const SIZE = buf.length;
+    const MAX_LAG = Math.floor(sampleRate / 60);   // até ~60 Hz
+    const MIN_LAG = Math.floor(sampleRate / 1200); // até ~1200 Hz (violino cabe)
+    const corr = new Float32Array(MAX_LAG);
+
+    for (let lag = MIN_LAG; lag < MAX_LAG; lag++) {
+      let sum = 0;
+      for (let i = 0; i < SIZE - lag; i++) sum += buf[i] * buf[i + lag];
+      corr[lag] = sum;
+    }
+
+    // Encontrar pico
+    let bestLag = -1;
+    let best = -Infinity;
+    for (let lag = MIN_LAG; lag < MAX_LAG; lag++) {
+      if (corr[lag] > best) {
+        best = corr[lag];
+        bestLag = lag;
+      }
+    }
+    if (bestLag <= 0) return null;
+
+    // Refino parabólico usando vizinhos
+    const y0 = corr[bestLag - 1] || 0;
+    const y1 = corr[bestLag];
+    const y2 = corr[bestLag + 1] || 0;
+    const denom = (2 * y1 - y0 - y2);
+    let shift = 0;
+    if (denom !== 0) shift = (y0 - y2) / (2 * denom);
+    const refinedLag = bestLag + shift;
+
+    const freq = sampleRate / refinedLag;
+
+    // sanity check
+    if (!Number.isFinite(freq) || freq < 60 || freq > 1200) return null;
+    return freq;
+  }
+
+  // =========================
+  // 6) Loop do jogo
+  // =========================
+  function tick(ts) {
+    if (!running) return;
+
+    // delta time
+    if (!lastTs) lastTs = ts;
+    const dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+
+    analyser.getFloatTimeDomainData(data);
+    const hz = autoCorrelate(data, audioCtx.sampleRate);
+
+    if (attemptActive) {
+      // timeout?
+      const elapsedMs = performance.now() - attemptStart;
+      if (elapsedMs >= attemptTimeoutMs) {
+        endAttempt(false, elapsedMs);
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      if (hz != null && target) {
+        const errRatio = Math.abs(hz - target.hz) / target.hz;
+        setText("detHz", fmtHz(hz));
+        setText("detErr", fmtPct(errRatio));
+
+        // média por tentativa
+        sumHz += hz;
+        nHz++;
+
+        if (errRatio <= TOLERANCE_RATIO) {
+          inTuneHold += dt;
+        } else {
+          // opcional: decair em vez de zerar, mas aqui é “sustentar”
+          inTuneHold = 0;
+        }
+
+        const holdMs = Math.min(inTuneHold, HOLD_SECONDS) * 1000;
+        setText("holdMs", `${Math.round(holdMs)} ms`);
+        $("holdBar").style.width = `${Math.min(100, (inTuneHold / HOLD_SECONDS) * 100)}%`;
+
+        if (inTuneHold >= HOLD_SECONDS) {
+          endAttempt(true, elapsedMs);
+        }
+      } else {
+        setText("detHz", "—");
+        setText("detErr", "—");
+        inTuneHold = 0;
+        setText("holdMs", "0 ms");
+        $("holdBar").style.width = "0%";
+      }
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function startAttempt() {
+    attemptActive = true;
+    attemptStart = performance.now();
+    sumHz = 0;
+    nHz = 0;
+    inTuneHold = 0;
+    lastTs = 0;
+    setTargetNote(pickRandomTarget());
+  }
+
+  function endAttempt(ok, elapsedMs) {
+    attemptActive = false;
+    totalAttemptMs += elapsedMs;
+
+    if (ok) hits++;
+    else misses++;
+
+    const idx = hits + misses;
+    const avgHz = (nHz > 0) ? (sumHz / nHz) : NaN;
+
+    last10.push({
+      idx,
+      targetName: target ? target.name : "—",
+      ok,
+      ms: elapsedMs,
+      avgHz
+    });
+
+    renderKpis();
+    renderLast10();
+
+    // Próxima tentativa imediatamente
+    startAttempt();
+  }
+
+  // =========================
+  // 7) Áudio / permissões
+  // =========================
+  async function enableMic() {
+    if (mediaStream) return;
+
+    // Tentamos sugerir configurações típicas para afinação
+    const constraints = {
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    };
+
+    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(mediaStream);
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096; // maior => melhor resolução de pitch (com mais latência)
+    analyser.smoothingTimeConstant = 0.0;
+
+    src.connect(analyser);
+    data = new Float32Array(analyser.fftSize);
+
+    $("btnStart").disabled = false;
+    $("btnMic").disabled = true;
+  }
+
+  function stopAll() {
+    running = false;
+    attemptActive = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+
+    $("btnStop").disabled = true;
+    $("btnStart").disabled = (mediaStream == null);
+
+    setText("targetNote", "—");
+    setText("targetHz", "—");
+    setText("detHz", "—");
+    setText("detErr", "—");
+    setText("holdMs", "0 ms");
+    $("holdBar").style.width = "0%";
+  }
+
+  // =========================
+  // 8) Wire-up UI
+  // =========================
+  $("timeoutSel").addEventListener("change", (e) => {
+    attemptTimeoutMs = Number(e.target.value) * 1000;
+  });
+
+  $("scaleSel").addEventListener("change", (e) => {
+    scaleKey = e.target.value;
+    SCALE = BASE_SCALES[scaleKey];
+    renderScalePills();
+  });
+
+  $("btnMic").addEventListener("click", async () => {
+    try {
+      await enableMic();
+    } catch (err) {
+      alert("Não consegui acessar o microfone. Verifique permissões do navegador.\n\n" + err);
+    }
+  });
+
+  $("btnStart").addEventListener("click", async () => {
+    try {
+      // Em alguns navegadores o AudioContext precisa de gesto do usuário para iniciar.
+      if (!mediaStream) await enableMic();
+      if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+
+      attemptTimeoutMs = Number($("timeoutSel").value) * 1000;
+
+      running = true;
+      $("btnStart").disabled = true;
+      $("btnStop").disabled = false;
+
+      startAttempt();
+      rafId = requestAnimationFrame(tick);
+    } catch (err) {
+      alert("Erro ao iniciar o jogo.\n\n" + err);
+    }
+  });
+
+  $("btnStop").addEventListener("click", () => stopAll());
+
+  // init
+  renderScalePills();
+  renderKpis();
+  renderLast10();
+})();
+</script>
+</body>
+</html>
