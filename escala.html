@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Treino de Notas – Escala de Ré (Violino)</title>
+  <title>Treino de Notas – Escala de Ré (Violino) • YIN</title>
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     body { margin: 0; padding: 20px; background: #0b0f14; color: #e8eef6; }
-    .wrap { max-width: 980px; margin: 0 auto; }
+    .wrap { max-width: 1040px; margin: 0 auto; }
     h1 { font-size: 20px; margin: 0 0 12px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
+    @media (max-width: 940px){ .row { grid-template-columns: 1fr; } }
     .card {
       background: #121a24; border: 1px solid #223044; border-radius: 14px;
       padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
@@ -42,27 +43,37 @@
     .pill {
       background:#0f1620; border:1px solid #223044; color:#a9b8cc;
       border-radius:999px; padding:6px 10px; font-size:12px;
+      display:flex; align-items:center; gap:8px;
     }
+    input[type="range"] { width: 180px; }
+    select { background:#0f1620; color:#e8eef6; border:1px solid #223044; border-radius:10px; padding:6px 8px; }
+    .dir { font-weight:800; }
+    .up { color:#7ff0b6; }
+    .down { color:#ffb86b; }
   </style>
 </head>
 
 <body>
 <div class="wrap">
-  <h1>Jogo de afinação – Escala de <b>Ré (D maior)</b> no violino</h1>
+  <h1>Jogo de afinação – Escala de <b>Ré (D maior)</b> no violino (detecção <b>YIN</b>)</h1>
 
   <div class="row">
     <div class="card">
-      <div class="sub">Toque a nota exibida. Conta como acerto se você ficar dentro de <b>±1%</b> da frequência-alvo por <b>0,5s</b>.</div>
+      <div class="sub">
+        Toque a nota exibida. Conta como acerto se você ficar dentro de <b>±tolerância</b> por <b>tempo de sustentação</b>.
+        <br/>Modo pode ser <b>Ordem</b> (subir/descender) ou <b>Aleatório</b>.
+      </div>
 
       <div class="bigNote" id="targetNote">—</div>
       <div class="sub">
         Alvo: <span class="mono" id="targetHz">—</span> Hz
         &nbsp;•&nbsp; Detectado: <span class="mono" id="detHz">—</span> Hz
         &nbsp;•&nbsp; Erro: <span class="mono" id="detErr">—</span>
+        &nbsp;•&nbsp; Direção: <span class="mono dir" id="dirHint">—</span>
       </div>
 
       <div class="statusLine">
-        <div>Progresso de sustentação (0,5s):</div>
+        <div>Progresso de sustentação:</div>
         <div class="mono" id="holdMs">0 ms</div>
       </div>
       <div class="meter" title="tempo sustentado dentro da tolerância">
@@ -75,7 +86,7 @@
         <button id="btnStop" class="secondary" disabled>Parar</button>
 
         <label class="pill">
-          Timeout por tentativa:
+          Timeout:
           <select id="timeoutSel">
             <option value="6">6s</option>
             <option value="8" selected>8s</option>
@@ -85,18 +96,46 @@
         </label>
 
         <label class="pill">
-          Fonte (D maior):
-          <select id="scaleSel" title="O padrão usa Ré maior começando no Ré (corda D aberta).">
-            <option value="D4">D4 → D5 (violino, comum)</option>
+          Modo:
+          <select id="modeSel" title="Ordem = subir e depois descer.">
+            <option value="order" selected>Ordem (subir/descender)</option>
+            <option value="random">Aleatório</option>
+          </select>
+        </label>
+
+        <label class="pill">
+          Registro:
+          <select id="scaleSel" title="Escolha a oitava da escala de Ré.">
+            <option value="D4" selected>D4 → D5 (violino, comum)</option>
             <option value="D3">D3 → D4 (mais grave)</option>
           </select>
         </label>
       </div>
 
+      <div class="controls">
+        <div class="pill" title="A4 define o temperamento igual (todas as frequências mudam junto).">
+          Calibração A4:
+          <select id="a4Sel">
+            <option value="440" selected>440 Hz</option>
+            <option value="442">442 Hz</option>
+          </select>
+        </div>
+
+        <div class="pill" title="Tolerância em porcentagem (erro relativo |f - alvo|/alvo).">
+          Tolerância: <span class="mono" id="tolVal">1.00%</span>
+          <input id="tolRange" type="range" min="0.2" max="3.0" value="1.0" step="0.1" />
+        </div>
+
+        <div class="pill" title="Tempo necessário dentro da tolerância para contar como acerto.">
+          Sustentar: <span class="mono" id="holdVal">0.50s</span>
+          <input id="holdRange" type="range" min="0.2" max="1.5" value="0.5" step="0.05" />
+        </div>
+      </div>
+
       <div class="pillRow" id="scalePills"></div>
 
       <div class="hint">
-        Dica: use um ambiente silencioso e toque uma nota estável (sem vibrato) para passar mais fácil.
+        Dicas: toque sem vibrato para validar mais rápido. Se estiver “pulando” de frequência, aproxime o celular do violino e reduza ruído.
       </div>
     </div>
 
@@ -133,7 +172,7 @@
       </table>
 
       <div class="hint">
-        “Hz (média)” é uma média simples das leituras válidas durante a tentativa.
+        “Hz (média)” é média das leituras válidas da tentativa. Se der “—”, não houve leitura confiável.
       </div>
     </div>
   </div>
@@ -142,11 +181,9 @@
 <script>
 (() => {
   // =========================
-  // 1) Notas da escala de Ré (D maior)
+  // 1) Base (A4=440) para D maior (temperamento igual)
   // =========================
-  // D4 293.66, E4 329.63, F#4 369.99, G4 392.00, A4 440.00, B4 493.88, C#5 554.37, D5 587.33
-  // Também oferecemos D3→D4 (uma oitava abaixo) como opção.
-  const BASE_SCALES = {
+  const BASE_440 = {
     D4: [
       { name: "D4",  hz: 293.66 },
       { name: "E4",  hz: 329.63 },
@@ -170,14 +207,19 @@
   };
 
   // =========================
-  // 2) Parâmetros do jogo
+  // 2) Estado / parâmetros (UI configuráveis)
   // =========================
-  const TOLERANCE_RATIO = 0.01;   // 1%
-  const HOLD_SECONDS = 0.5;       // 0.5s dentro da tolerância
+  let toleranceRatio = 0.01;    // 1%
+  let holdSeconds = 0.50;       // 0.5s
 
-  // =========================
-  // 3) Estado
-  // =========================
+  let a4 = 440;
+  let scaleKey = "D4";
+  let mode = "order"; // "order" | "random"
+
+  let SCALE = [];      // recalculado com base em A4
+  let orderIndex = 0;  // índice atual no modo ordem
+  let orderDir = +1;   // +1 subindo, -1 descendo
+
   let audioCtx = null;
   let analyser = null;
   let mediaStream = null;
@@ -187,37 +229,32 @@
   let running = false;
   let attemptActive = false;
 
-  let scaleKey = "D4";
-  let SCALE = BASE_SCALES[scaleKey];
-
   let target = null;
   let attemptStart = 0;
   let attemptTimeoutMs = 8000;
 
-  let inTuneHold = 0;           // segundos acumulados dentro do range
+  let inTuneHold = 0;           // segundos dentro da tolerância
   let lastTs = 0;
 
   let hits = 0, misses = 0;
   let totalAttemptMs = 0;
 
-  // para “Hz (média)” por tentativa:
+  // média por tentativa
   let sumHz = 0;
   let nHz = 0;
 
   const last10 = []; // {idx, targetName, ok, ms, avgHz}
 
   // =========================
-  // 4) UI helpers
+  // 3) UI helpers
   // =========================
   const $ = (id) => document.getElementById(id);
-
-  function setText(id, txt) { $(id).textContent = txt; }
+  const setText = (id, txt) => $(id).textContent = txt;
 
   function fmtHz(x) {
     if (!Number.isFinite(x)) return "—";
     return x.toFixed(2);
   }
-
   function fmtPct(errRatio) {
     if (!Number.isFinite(errRatio)) return "—";
     return (errRatio * 100).toFixed(2) + "%";
@@ -265,90 +302,169 @@
     setText("targetHz", fmtHz(target.hz));
     setText("detHz", "—");
     setText("detErr", "—");
+    setDirHint(null);
+
     inTuneHold = 0;
     lastTs = 0;
     setText("holdMs", "0 ms");
     $("holdBar").style.width = "0%";
   }
 
-  function pickRandomTarget() {
-    const i = Math.floor(Math.random() * SCALE.length);
-    return SCALE[i];
+  function setDirHint(hz) {
+    const el = $("dirHint");
+    el.classList.remove("up","down");
+    if (!target || !Number.isFinite(hz)) { el.textContent = "—"; return; }
+    const diff = hz - target.hz;
+    // zona morta pequena para não piscar
+    const dead = target.hz * 0.002; // 0.2%
+    if (Math.abs(diff) <= dead) { el.textContent = "ok"; return; }
+    if (diff < 0) { el.textContent = "↑"; el.classList.add("up"); } // está baixo, subir
+    else { el.textContent = "↓"; el.classList.add("down"); }        // está alto, descer
   }
 
   // =========================
-  // 5) Pitch detection (Autocorrelation)
+  // 4) Escala com calibração A4 (440/442)
   // =========================
-  // Baseado em autocorrelação simples (suficiente para treino).
-  // Retorna frequência em Hz, ou null se não detectável.
-  function autoCorrelate(buf, sampleRate) {
-    // Remove DC
-    let mean = 0;
-    for (let i = 0; i < buf.length; i++) mean += buf[i];
-    mean /= buf.length;
-    for (let i = 0; i < buf.length; i++) buf[i] -= mean;
+  function rebuildScale() {
+    const ratio = a4 / 440.0;
+    const base = BASE_440[scaleKey];
+    SCALE = base.map(n => ({ name: n.name, hz: n.hz * ratio }));
+    renderScalePills();
+  }
 
-    // Energia / RMS para checar silêncio
-    let rms = 0;
-    for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
-    rms = Math.sqrt(rms / buf.length);
-    if (rms < 0.012) return null; // limiar de volume (ajuste se necessário)
+  // =========================
+  // 5) Seleção de alvo (ordem subir/descender ou aleatório)
+  // =========================
+  function resetOrderTraversal() {
+    orderIndex = 0;
+    orderDir = +1;
+  }
 
-    // Autocorrelação
-    const SIZE = buf.length;
-    const MAX_LAG = Math.floor(sampleRate / 60);   // até ~60 Hz
-    const MIN_LAG = Math.floor(sampleRate / 1200); // até ~1200 Hz (violino cabe)
-    const corr = new Float32Array(MAX_LAG);
-
-    for (let lag = MIN_LAG; lag < MAX_LAG; lag++) {
-      let sum = 0;
-      for (let i = 0; i < SIZE - lag; i++) sum += buf[i] * buf[i + lag];
-      corr[lag] = sum;
+  function pickTarget() {
+    if (mode === "random") {
+      const i = Math.floor(Math.random() * SCALE.length);
+      return SCALE[i];
     }
+    // ordem: 0..N-1..0..N-1...
+    const n = SCALE.length;
+    const note = SCALE[orderIndex];
 
-    // Encontrar pico
-    let bestLag = -1;
-    let best = -Infinity;
-    for (let lag = MIN_LAG; lag < MAX_LAG; lag++) {
-      if (corr[lag] > best) {
-        best = corr[lag];
-        bestLag = lag;
+    // avançar para próxima
+    if (n > 1) {
+      if (orderDir > 0) {
+        if (orderIndex === n - 1) { orderDir = -1; orderIndex = n - 2; }
+        else orderIndex++;
+      } else {
+        if (orderIndex === 0) { orderDir = +1; orderIndex = 1; }
+        else orderIndex--;
       }
     }
-    if (bestLag <= 0) return null;
+    return note;
+  }
 
-    // Refino parabólico usando vizinhos
-    const y0 = corr[bestLag - 1] || 0;
-    const y1 = corr[bestLag];
-    const y2 = corr[bestLag + 1] || 0;
+  // =========================
+  // 6) Pitch detection (YIN)
+  // =========================
+  // Implementação compacta do YIN:
+  // 1) difference function d(tau)
+  // 2) cumulative mean normalized difference function (CMNDF)
+  // 3) threshold + first minimum
+  // 4) refinamento parabólico
+  //
+  // Retorna frequência em Hz ou null.
+  function yinPitch(buffer, sampleRate, {
+    fmin = 60,
+    fmax = 1200,
+    threshold = 0.12,   // mais baixo => mais estrito
+    rmsThreshold = 0.012
+  } = {}) {
+    const n = buffer.length;
+
+    // RMS para silêncio
+    let rms = 0;
+    for (let i = 0; i < n; i++) rms += buffer[i] * buffer[i];
+    rms = Math.sqrt(rms / n);
+    if (rms < rmsThreshold) return null;
+
+    const maxTau = Math.floor(sampleRate / fmin);
+    const minTau = Math.floor(sampleRate / fmax);
+
+    // Precisamos de pelo menos 2*maxTau amostras para comparar bem.
+    // Como fftSize costuma ser 4096, dá ok para violino.
+    if (maxTau >= n - 1) return null;
+
+    const d = new Float32Array(maxTau + 1);
+    const cmndf = new Float32Array(maxTau + 1);
+
+    // difference function
+    for (let tau = minTau; tau <= maxTau; tau++) {
+      let sum = 0;
+      for (let i = 0; i < n - tau; i++) {
+        const delta = buffer[i] - buffer[i + tau];
+        sum += delta * delta;
+      }
+      d[tau] = sum;
+    }
+
+    // CMNDF
+    cmndf[0] = 1;
+    let runningSum = 0;
+    for (let tau = 1; tau <= maxTau; tau++) {
+      runningSum += d[tau];
+      cmndf[tau] = (runningSum === 0) ? 1 : (d[tau] * tau / runningSum);
+    }
+
+    // encontrar o primeiro tau onde cmndf < threshold e é um mínimo local
+    let tauEstimate = -1;
+    for (let tau = minTau + 1; tau < maxTau - 1; tau++) {
+      if (cmndf[tau] < threshold && cmndf[tau] < cmndf[tau - 1]) {
+        // desce; avançar até o vale
+        while (tau + 1 < maxTau && cmndf[tau + 1] < cmndf[tau]) tau++;
+        tauEstimate = tau;
+        break;
+      }
+    }
+    if (tauEstimate === -1) return null;
+
+    // refinamento parabólico em cmndf ao redor do tauEstimate
+    const x0 = tauEstimate - 1;
+    const x1 = tauEstimate;
+    const x2 = tauEstimate + 1;
+
+    const y0 = cmndf[x0];
+    const y1 = cmndf[x1];
+    const y2 = cmndf[x2];
+
     const denom = (2 * y1 - y0 - y2);
-    let shift = 0;
-    if (denom !== 0) shift = (y0 - y2) / (2 * denom);
-    const refinedLag = bestLag + shift;
+    let betterTau = tauEstimate;
+    if (denom !== 0) {
+      const shift = (y0 - y2) / (2 * denom);
+      betterTau = tauEstimate + shift;
+    }
 
-    const freq = sampleRate / refinedLag;
-
-    // sanity check
-    if (!Number.isFinite(freq) || freq < 60 || freq > 1200) return null;
+    const freq = sampleRate / betterTau;
+    if (!Number.isFinite(freq) || freq < fmin || freq > fmax) return null;
     return freq;
   }
 
   // =========================
-  // 6) Loop do jogo
+  // 7) Loop do jogo
   // =========================
   function tick(ts) {
     if (!running) return;
 
-    // delta time
     if (!lastTs) lastTs = ts;
     const dt = (ts - lastTs) / 1000;
     lastTs = ts;
 
     analyser.getFloatTimeDomainData(data);
-    const hz = autoCorrelate(data, audioCtx.sampleRate);
+    const hz = yinPitch(data, audioCtx.sampleRate, {
+      fmin: 60, fmax: 1200,
+      threshold: 0.12,
+      rmsThreshold: 0.012
+    });
 
     if (attemptActive) {
-      // timeout?
       const elapsedMs = performance.now() - attemptStart;
       if (elapsedMs >= attemptTimeoutMs) {
         endAttempt(false, elapsedMs);
@@ -360,28 +476,23 @@
         const errRatio = Math.abs(hz - target.hz) / target.hz;
         setText("detHz", fmtHz(hz));
         setText("detErr", fmtPct(errRatio));
+        setDirHint(hz);
 
-        // média por tentativa
         sumHz += hz;
         nHz++;
 
-        if (errRatio <= TOLERANCE_RATIO) {
-          inTuneHold += dt;
-        } else {
-          // opcional: decair em vez de zerar, mas aqui é “sustentar”
-          inTuneHold = 0;
-        }
+        if (errRatio <= toleranceRatio) inTuneHold += dt;
+        else inTuneHold = 0;
 
-        const holdMs = Math.min(inTuneHold, HOLD_SECONDS) * 1000;
+        const holdMs = Math.min(inTuneHold, holdSeconds) * 1000;
         setText("holdMs", `${Math.round(holdMs)} ms`);
-        $("holdBar").style.width = `${Math.min(100, (inTuneHold / HOLD_SECONDS) * 100)}%`;
+        $("holdBar").style.width = `${Math.min(100, (inTuneHold / holdSeconds) * 100)}%`;
 
-        if (inTuneHold >= HOLD_SECONDS) {
-          endAttempt(true, elapsedMs);
-        }
+        if (inTuneHold >= holdSeconds) endAttempt(true, elapsedMs);
       } else {
         setText("detHz", "—");
         setText("detErr", "—");
+        setDirHint(null);
         inTuneHold = 0;
         setText("holdMs", "0 ms");
         $("holdBar").style.width = "0%";
@@ -398,7 +509,7 @@
     nHz = 0;
     inTuneHold = 0;
     lastTs = 0;
-    setTargetNote(pickRandomTarget());
+    setTargetNote(pickTarget());
   }
 
   function endAttempt(ok, elapsedMs) {
@@ -422,17 +533,15 @@
     renderKpis();
     renderLast10();
 
-    // Próxima tentativa imediatamente
     startAttempt();
   }
 
   // =========================
-  // 7) Áudio / permissões
+  // 8) Áudio
   // =========================
   async function enableMic() {
     if (mediaStream) return;
 
-    // Tentamos sugerir configurações típicas para afinação
     const constraints = {
       audio: {
         echoCancellation: false,
@@ -447,7 +556,7 @@
     const src = audioCtx.createMediaStreamSource(mediaStream);
 
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 4096; // maior => melhor resolução de pitch (com mais latência)
+    analyser.fftSize = 4096;
     analyser.smoothingTimeConstant = 0.0;
 
     src.connect(analyser);
@@ -470,34 +579,61 @@
     setText("targetHz", "—");
     setText("detHz", "—");
     setText("detErr", "—");
+    setDirHint(null);
     setText("holdMs", "0 ms");
     $("holdBar").style.width = "0%";
   }
 
   // =========================
-  // 8) Wire-up UI
+  // 9) UI wiring
   // =========================
+  function updateTolUI() {
+    setText("tolVal", (toleranceRatio * 100).toFixed(2) + "%");
+  }
+  function updateHoldUI() {
+    setText("holdVal", holdSeconds.toFixed(2) + "s");
+  }
+
   $("timeoutSel").addEventListener("change", (e) => {
     attemptTimeoutMs = Number(e.target.value) * 1000;
   });
 
+  $("modeSel").addEventListener("change", (e) => {
+    mode = e.target.value;
+    resetOrderTraversal();
+  });
+
   $("scaleSel").addEventListener("change", (e) => {
     scaleKey = e.target.value;
-    SCALE = BASE_SCALES[scaleKey];
-    renderScalePills();
+    resetOrderTraversal();
+    rebuildScale();
+  });
+
+  $("a4Sel").addEventListener("change", (e) => {
+    a4 = Number(e.target.value);
+    rebuildScale();
+  });
+
+  $("tolRange").addEventListener("input", (e) => {
+    toleranceRatio = Number(e.target.value) / 100.0;
+    updateTolUI();
+  });
+
+  $("holdRange").addEventListener("input", (e) => {
+    holdSeconds = Number(e.target.value);
+    updateHoldUI();
   });
 
   $("btnMic").addEventListener("click", async () => {
     try {
       await enableMic();
     } catch (err) {
-      alert("Não consegui acessar o microfone. Verifique permissões do navegador.\n\n" + err);
+      alert("Não consegui acessar o microfone. Abra este arquivo via http(s) (ex.: GitHub Pages) e permita o microfone.\n\n" + err);
     }
   });
 
   $("btnStart").addEventListener("click", async () => {
     try {
-      // Em alguns navegadores o AudioContext precisa de gesto do usuário para iniciar.
       if (!mediaStream) await enableMic();
       if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
 
@@ -506,6 +642,10 @@
       running = true;
       $("btnStart").disabled = true;
       $("btnStop").disabled = false;
+
+      // garantir que escala está “alinhada” com as configs atuais
+      rebuildScale();
+      resetOrderTraversal();
 
       startAttempt();
       rafId = requestAnimationFrame(tick);
@@ -517,7 +657,19 @@
   $("btnStop").addEventListener("click", () => stopAll());
 
   // init
-  renderScalePills();
+  a4 = Number($("a4Sel").value);
+  scaleKey = $("scaleSel").value;
+  mode = $("modeSel").value;
+
+  toleranceRatio = Number($("tolRange").value) / 100.0;
+  holdSeconds = Number($("holdRange").value);
+
+  updateTolUI();
+  updateHoldUI();
+
+  rebuildScale();
+  resetOrderTraversal();
+
   renderKpis();
   renderLast10();
 })();
